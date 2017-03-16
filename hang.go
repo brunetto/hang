@@ -57,6 +57,7 @@ func NewHandler(lg Logger) *Handler {
 
 	h.Routes = map[string]HandleFunc{}
 	h.AddRoute("default", h.RouteNotSet)
+	h.AddRoute("livecheck", h.LiveCheck)
 
 	return h
 }
@@ -68,11 +69,11 @@ func (h *Handler) RouteNotSet(resp http.ResponseWriter, req *http.Request) error
 	return nil
 }
 
-func (h *Handler) LiveCheck(resp http.ResponseWriter, req *http.Request) {
+func (h *Handler) LiveCheck(resp http.ResponseWriter, req *http.Request) error {
 	resp.WriteHeader(http.StatusOK)
 	resp.Write([]byte("OK"))
 	h.Log.Debug("LiveCheck invoked")
-	return
+	return nil
 }
 
 func (h *Handler) AddRoute(route string, handleFunc HandleFunc) error {
