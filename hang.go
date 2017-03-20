@@ -105,7 +105,7 @@ func (h *Handler) Handle(resp http.ResponseWriter, req *http.Request) {
 		handled bool
 	)
 	// Find the route requested
-	path = strings.ToLower(strings.Replace(req.URL.Path, "/", "", -1))
+	path = strings.Replace(req.URL.Path, "/", "", -1)
 	handled = false
 	for route, handler = range h.Routes {
 		if path == route {
