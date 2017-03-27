@@ -41,6 +41,9 @@ type HandleFunc func(http.ResponseWriter, *http.Request) error
 type Handler struct {
 	Log    Logger
 	Routes map[string]HandleFunc
+	c chan os.Signal
+	ExecName string
+	ProcessName string
 }
 
 func NewHandler(lg Logger) *Handler {
@@ -53,6 +56,10 @@ func NewHandler(lg Logger) *Handler {
 		}
 	}
 	h := &Handler{}
+
+	h.c = make(chan os.Signal, 1)
+	h.ExecName = os.Args[0]
+
 	h.Log = lg
 
 	h.Routes = map[string]HandleFunc{}
@@ -62,10 +69,15 @@ func NewHandler(lg Logger) *Handler {
 	return h
 }
 
+func (h *Handler) SetProcessName(name string) {
+	h.ProcessName = name
+}
+
 func (h *Handler) RouteNotSet(resp http.ResponseWriter, req *http.Request) error {
+	path := strings.Replace(req.URL.Path, "/", "", -1)
 	resp.WriteHeader(http.StatusBadRequest)
-	resp.Write([]byte("Route not found"))
-	h.Log.Debug("Route not found")
+	resp.Write([]byte("Route not found: " + path))
+	h.Log.Debug("Route not found: " + path)
 	return nil
 }
 
@@ -103,13 +115,18 @@ func (h *Handler) Handle(resp http.ResponseWriter, req *http.Request) {
 		route   string
 		handler HandleFunc
 		handled bool
+		err error
 	)
 	// Find the route requested
 	path = strings.Replace(req.URL.Path, "/", "", -1)
+	logrus.Println("Path: ", path)
 	handled = false
 	for route, handler = range h.Routes {
 		if path == route {
-			handler(resp, req)
+			err = handler(resp, req)
+			if err != nil {
+				h.Log.Debug(err)
+			}
 			handled = true
 			break
 		}
@@ -117,4 +134,12 @@ func (h *Handler) Handle(resp http.ResponseWriter, req *http.Request) {
 	if !handled {
 		h.Routes["default"](resp, req)
 	}
+}
+
+func (h *Handler) WaitForShutdownCleaning() {
+	// Waiting for exit signal on the channel
+	<-h.c
+
+	h.Log.Infof("%v: stopped by the user", os.Args[0])
+	os.Exit(0)
 }
