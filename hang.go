@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"os/signal"
+	"syscall"
 )
 
 type Logger interface {
@@ -46,7 +48,7 @@ type Handler struct {
 	ProcessName string
 }
 
-func NewHandler(lg Logger) *Handler {
+func NewHandler(lg Logger, processName string) *Handler {
 	if lg == nil {
 		lg = &logrus.Logger{
 			Out:       os.Stderr,
@@ -57,10 +59,23 @@ func NewHandler(lg Logger) *Handler {
 	}
 	h := &Handler{}
 
+	// Log app sigterm (stop by the user - killing can't be catched)
 	h.c = make(chan os.Signal, 1)
+	signal.Notify(h.c, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	go h.WaitForShutdownCleaning()
+
 	h.ExecName = os.Args[0]
 
+	// Can be set by the user
+	if processName == "" {
+		h.ProcessName = h.ExecName
+	} else {
+		h.ProcessName = processName
+	}
+
 	h.Log = lg
+
+	h.Log.Infof("%v: started", h.ProcessName)
 
 	h.Routes = map[string]HandleFunc{}
 	h.AddRoute("default", h.RouteNotSet)
@@ -140,6 +155,6 @@ func (h *Handler) WaitForShutdownCleaning() {
 	// Waiting for exit signal on the channel
 	<-h.c
 
-	h.Log.Infof("%v: stopped by the user", os.Args[0])
+	h.Log.Infof("%v: stopped by the user", h.ProcessName)
 	os.Exit(0)
 }
