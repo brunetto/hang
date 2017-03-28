@@ -1,3 +1,3 @@
 # Hang
 
-Your webserver handler in Go.
+Your webserver helper in Go.
