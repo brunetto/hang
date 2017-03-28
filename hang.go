@@ -105,7 +105,7 @@ func (h *Handler) RouteNotSet(resp http.ResponseWriter, req *http.Request) error
 	path := strings.Replace(req.URL.Path, "/", "", -1)
 	resp.WriteHeader(http.StatusBadRequest)
 	resp.Write([]byte("Route not found: " + path))
-	h.Log.Debug("Route not found: " + path)
+	h.Log.Info("Route not found: " + path)
 	return nil
 }
 
@@ -158,7 +158,7 @@ func (h *Handler) Handle(resp http.ResponseWriter, req *http.Request) {
 			h.Log.WithFields(logrus.Fields{"route": route, "function": GetFunctionName(handler)}).Debug()
 			err = handler(resp, req)
 			if err != nil {
-				h.Log.WithFields(logrus.Fields{"route": route, "function": GetFunctionName(handler)}).Info(err)
+				h.Log.WithFields(logrus.Fields{"route": route, "function": GetFunctionName(handler)}).Error(err)
 			}
 			handled = true
 			break
