@@ -5,11 +5,14 @@ import (
 	"github.com/Sirupsen/logrus"
 	"net/http"
 	"os"
-	"strings"
 	"os/signal"
+	"reflect"
+	"runtime"
+	"strings"
 	"syscall"
 )
 
+// Logger defines which methods are requested for a logger to be used in this package
 type Logger interface {
 	Debug(args ...interface{})
 	Debugf(format string, args ...interface{})
@@ -38,16 +41,24 @@ type Logger interface {
 	WithFields(fields logrus.Fields) *logrus.Entry
 }
 
+// HandleFunc is the type of function to be used to handle a route in this package
 type HandleFunc func(http.ResponseWriter, *http.Request) error
 
+// Handler contains the core data of the generic handler: logger, routes, ...
 type Handler struct {
-	Log    Logger
-	Routes map[string]HandleFunc
-	c chan os.Signal
-	ExecName string
+	// Logger to be used
+	Log         Logger
+	// Map to match a route with the correct handler
+	Routes      map[string]HandleFunc
+	// Channel to listen for quit signal
+	c           chan os.Signal
+	// Name of the called process
+	ExecName    string
+	// Nice name of the service, given by the user
 	ProcessName string
 }
 
+// NewHandler provides a new, initialized, generic handler
 func NewHandler(lg Logger, processName string) *Handler {
 	if lg == nil {
 		lg = &logrus.Logger{
@@ -62,7 +73,7 @@ func NewHandler(lg Logger, processName string) *Handler {
 	// Log app sigterm (stop by the user - killing can't be catched)
 	h.c = make(chan os.Signal, 1)
 	signal.Notify(h.c, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-	go h.WaitForShutdownCleaning()
+	go h.WaitForShutdown()
 
 	h.ExecName = os.Args[0]
 
@@ -84,10 +95,12 @@ func NewHandler(lg Logger, processName string) *Handler {
 	return h
 }
 
+// SetProcessName sets the nice user defined service name
 func (h *Handler) SetProcessName(name string) {
 	h.ProcessName = name
 }
 
+// RouteNotSet is the default handler for routes with no handler registered
 func (h *Handler) RouteNotSet(resp http.ResponseWriter, req *http.Request) error {
 	path := strings.Replace(req.URL.Path, "/", "", -1)
 	resp.WriteHeader(http.StatusBadRequest)
@@ -96,6 +109,7 @@ func (h *Handler) RouteNotSet(resp http.ResponseWriter, req *http.Request) error
 	return nil
 }
 
+// LiveCheck is the minimum healthy check for the service
 func (h *Handler) LiveCheck(resp http.ResponseWriter, req *http.Request) error {
 	resp.WriteHeader(http.StatusOK)
 	resp.Write([]byte("OK"))
@@ -103,6 +117,7 @@ func (h *Handler) LiveCheck(resp http.ResponseWriter, req *http.Request) error {
 	return nil
 }
 
+// AddRoute registers a handler for a route
 func (h *Handler) AddRoute(route string, handleFunc HandleFunc) error {
 	// If route already exists fire an error
 	if _, exists := h.Routes[route]; exists {
@@ -112,10 +127,12 @@ func (h *Handler) AddRoute(route string, handleFunc HandleFunc) error {
 	return nil
 }
 
+// DeleteRoute unregister a route
 func (h *Handler) DeleteRoute(route string) {
 	delete(h.Routes, route)
 }
 
+// ModifyRoute registers a new handler for a route
 func (h *Handler) ModifyRoute(route string, handleFunc HandleFunc) error {
 	if _, exists := h.Routes[route]; !exists {
 		return errors.New("Route " + route + "does not exists.")
@@ -124,23 +141,24 @@ func (h *Handler) ModifyRoute(route string, handleFunc HandleFunc) error {
 	return nil
 }
 
+// Handle takes care of routing the request to the right handler
 func (h *Handler) Handle(resp http.ResponseWriter, req *http.Request) {
 	var (
 		path    string
 		route   string
 		handler HandleFunc
 		handled bool
-		err error
+		err     error
 	)
 	// Find the route requested
 	path = strings.Replace(req.URL.Path, "/", "", -1)
-	logrus.Println("Path: ", path)
 	handled = false
 	for route, handler = range h.Routes {
 		if path == route {
+			h.Log.WithFields(logrus.Fields{"route": route, "function": GetFunctionName(handler)}).Debug()
 			err = handler(resp, req)
 			if err != nil {
-				h.Log.Debug(err)
+				h.Log.WithFields(logrus.Fields{"route": route, "function": GetFunctionName(handler)}).Info(err)
 			}
 			handled = true
 			break
@@ -151,10 +169,16 @@ func (h *Handler) Handle(resp http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (h *Handler) WaitForShutdownCleaning() {
+// WaitForShutdown waits the quit signal
+func (h *Handler) WaitForShutdown() {
 	// Waiting for exit signal on the channel
 	<-h.c
 
 	h.Log.Infof("%v: stopped by the user", h.ProcessName)
 	os.Exit(0)
+}
+
+// GetFunctionName returns the function name for debugging purposes
+func GetFunctionName(handler HandleFunc) string {
+	return runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
 }
