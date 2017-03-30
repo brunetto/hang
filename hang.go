@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"path/filepath"
 )
 
 // Logger defines which methods are requested for a logger to be used in this package
@@ -102,7 +103,7 @@ func (h *Handler) SetProcessName(name string) {
 
 // RouteNotSet is the default handler for routes with no handler registered
 func (h *Handler) RouteNotSet(resp http.ResponseWriter, req *http.Request) error {
-	path := strings.Replace(req.URL.Path, "/", "", -1)
+	path := GetRoute(req)
 	resp.WriteHeader(http.StatusBadRequest)
 	resp.Write([]byte("Route not found: " + path))
 	h.Log.Info("Route not found: " + path)
@@ -151,7 +152,7 @@ func (h *Handler) Handle(resp http.ResponseWriter, req *http.Request) {
 		err     error
 	)
 	// Find the route requested
-	path = strings.Replace(req.URL.Path, "/", "", -1)
+	path = GetRoute(req)
 	handled = false
 	for route, handler = range h.Routes {
 		if path == route {
@@ -181,4 +182,24 @@ func (h *Handler) WaitForShutdown() {
 // GetFunctionName returns the function name for debugging purposes
 func GetFunctionName(handler HandleFunc) string {
 	return runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
+}
+
+func GetRoute (req *http.Request) string {
+	return strings.Replace(req.URL.Path, "/", "", -1)
+}
+
+func At() logrus.Fields {
+	return logrus.Fields{"At": Here()}
+}
+
+func Here() string {
+	pc, _, _, ok := runtime.Caller(2)
+	if !ok {
+		return "unknown"
+	}
+	me := runtime.FuncForPC(pc)
+	if me == nil {
+		return "unnamed"
+	}
+	return filepath.Base(me.Name())
 }
