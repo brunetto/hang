@@ -1,7 +1,7 @@
 package hang
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 	"github.com/Sirupsen/logrus"
 	"net/http"
 	"os"
@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 	"path/filepath"
+	"gitlab.com/brunetto/ritter"
 )
 
 // Logger defines which methods are requested for a logger to be used in this package
@@ -188,8 +189,10 @@ func GetRoute (req *http.Request) string {
 	return strings.Replace(req.URL.Path, "/", "", -1)
 }
 
+//type LogFields logrus.Fields//map[string]interface{} // same as logrus.Fields
+
 func At() logrus.Fields {
-	return logrus.Fields{"At": Here()}
+	return logrus.Fields{"at": Here()}
 }
 
 func Here() string {
@@ -202,4 +205,53 @@ func Here() string {
 		return "unnamed"
 	}
 	return filepath.Base(me.Name())
+}
+
+func NewDefaultLogger() Logger {
+	var (
+		rotatedWriter *ritter.Writer
+		err           error
+	)
+	// New writer with rotation
+	rotatedWriter, err = ritter.NewRitterTime("default.log")
+	if err != nil {
+		logrus.Fatal("can't create log file: " + err.Error())
+	}
+
+	// Tee to stderr
+	rotatedWriter.TeeToStdErr = true
+
+	//logFormatter := new(logrus.TextFormatter)
+	//logFormatter.FullTimestamp = true
+
+	// Create logger
+	lg := (&logrus.Logger{
+		Out: rotatedWriter,
+		//Formatter: logFormatter,
+		Formatter: new(logrus.JSONFormatter),
+		Hooks:     make(logrus.LevelHooks),
+		Level:     logrus.DebugLevel,
+	}).WithFields(logrus.Fields{
+		"url": "syncer.udctracker.pixartprinting.local",
+	})
+	return lg
+}
+
+func ChooseLogLevel(level string) logrus.Level {
+	switch level {
+	case "info", "Info":
+		return logrus.InfoLevel
+	case "debug", "Debug":
+		return logrus.DebugLevel
+	case "warn", "Warn", "warning", "Warning":
+		return logrus.WarnLevel
+	case "err", "Err", "error", "Error":
+		return logrus.ErrorLevel
+	case "fatal", "Fatal":
+		return logrus.FatalLevel
+	case "panic", "Panic":
+		return logrus.PanicLevel
+	default:
+		return logrus.DebugLevel
+	}
 }
