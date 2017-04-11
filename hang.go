@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"path/filepath"
 	"gitlab.com/brunetto/ritter"
+	"io/ioutil"
+	"encoding/json"
 )
 
 // Logger defines which methods are requested for a logger to be used in this package
@@ -255,3 +257,67 @@ func ChooseLogLevel(level string) logrus.Level {
 		return logrus.DebugLevel
 	}
 }
+
+func GetReqData(resp http.ResponseWriter, req *http.Request) ([]byte, error) {
+	var (
+		err error
+		body []byte
+	)
+
+	// Check the request contains data
+	if req.Body == nil {
+		// Generate error
+		err = errors.New("Missing input data")
+		// Send response
+		resp.WriteHeader(http.StatusBadRequest)
+		resp.Write([]byte(err.Error()))
+		// Exit
+		return body, err
+	}
+
+	// Extract
+	body, err = ioutil.ReadAll(req.Body)
+	if err != nil {
+		if err.Error() == "EOF" {
+			// Wrap error
+			err = errors.Wrap(err, "EOF error reading JSON, maybe you are trying to read again an already processed response body")
+			// Respond
+			resp.WriteHeader(http.StatusInternalServerError)
+			resp.Write([]byte(err.Error()))
+			// Exit
+			return body, err
+		} else {
+			// Wrap error
+			err = errors.Wrap(err, "error reading request body")
+			// Respond
+			resp.WriteHeader(http.StatusBadRequest)
+			resp.Write([]byte(err.Error()))
+			// Exit
+			return body, err
+		}
+	}
+	req.Body.Close()
+	// Return
+	return body, err
+}
+
+func GetReqJSONData(resp http.ResponseWriter, req *http.Request, data interface{}) error {
+	var (
+		body []byte
+		err error
+	)
+	body, err = GetReqData(resp, req)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(body, data)
+	if err != nil {
+		err = errors.Wrap(err, "can't decode input JSON")
+		// Respond
+		resp.WriteHeader(http.StatusBadRequest)
+		resp.Write([]byte(err.Error()))
+		return err
+	}
+	return nil
+}
+
