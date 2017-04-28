@@ -314,8 +314,10 @@ func GetReqJSONData(resp http.ResponseWriter, req *http.Request, data interface{
 	if err != nil {
 		err = errors.Wrap(err, "can't decode input JSON")
 		// Respond
-		resp.WriteHeader(http.StatusBadRequest)
-		resp.Write([]byte(err.Error()))
+		if resp != nil {
+			resp.WriteHeader(http.StatusBadRequest)
+			resp.Write([]byte(err.Error()))
+		}
 		return err
 	}
 	return nil
