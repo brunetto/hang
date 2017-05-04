@@ -109,7 +109,7 @@ func (h *Handler) RouteNotSet(resp http.ResponseWriter, req *http.Request) error
 	path := GetRoute(req)
 	resp.WriteHeader(http.StatusBadRequest)
 	resp.Write([]byte("Route not found: " + path))
-	h.Log.Info("Route not found: " + path)
+	h.Log.WithFields(logrus.Fields{"origin": req.RemoteAddr}).Info("Route not found: " + path)
 	return nil
 }
 
@@ -117,7 +117,7 @@ func (h *Handler) RouteNotSet(resp http.ResponseWriter, req *http.Request) error
 func (h *Handler) LiveCheck(resp http.ResponseWriter, req *http.Request) error {
 	resp.WriteHeader(http.StatusOK)
 	resp.Write([]byte("OK"))
-	h.Log.Debug("LiveCheck invoked")
+	h.Log.WithFields(logrus.Fields{"origin": req.RemoteAddr}).Debug("LiveCheck invoked")
 	return nil
 }
 
@@ -159,10 +159,10 @@ func (h *Handler) Handle(resp http.ResponseWriter, req *http.Request) {
 	handled = false
 	for route, handler = range h.Routes {
 		if path == route {
-			h.Log.WithFields(logrus.Fields{"route": route, "function": GetFunctionName(handler)}).Debug()
+			h.Log.WithFields(logrus.Fields{"route": route, "function": GetFunctionName(handler),"origin": req.RemoteAddr}).Debug()
 			err = handler(resp, req)
 			if err != nil {
-				h.Log.WithFields(logrus.Fields{"route": route, "function": GetFunctionName(handler)}).Error(err)
+				h.Log.WithFields(logrus.Fields{"route": route, "function": GetFunctionName(handler), "origin": req.RemoteAddr}).Error(err)
 			}
 			handled = true
 			break
