@@ -182,13 +182,32 @@ func (h *Handler) WaitForShutdown() {
 	os.Exit(0)
 }
 
+// WaitForShutdown waits the quit signal
+func LogStartAndStop(processName string, logger Logger) {
+	// Create signal channel
+	c := make(chan os.Signal, 1)
+	// Catch stop signals and send them to the channel
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	// Sping goroutine
+	go func(c chan os.Signal, processName string, logger Logger) {
+		// Waiting for exit signal on the channel
+		<-c
+
+		logger.Infof("%v: stopped by the user", processName)
+		os.Exit(0)
+	}(c, processName, logger)
+
+	logger.Infof("%v: started", processName)
+}
+
 // GetFunctionName returns the function name for debugging purposes
 func GetFunctionName(handler HandleFunc) string {
 	return runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
 }
 
 func GetRoute (req *http.Request) string {
-	return strings.Replace(req.URL.Path, "/", "", -1)
+	//return strings.Replace(req.URL.Path, "/", "", -1)
+	return strings.TrimLeft(strings.TrimRight(req.URL.Path, "/"), "/")
 }
 
 //type LogFields logrus.Fields//map[string]interface{} // same as logrus.Fields
