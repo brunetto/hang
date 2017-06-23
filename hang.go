@@ -14,6 +14,8 @@ import (
 	"gitlab.com/brunetto/ritter"
 	"io/ioutil"
 	"encoding/json"
+	"bytes"
+	"io"
 )
 
 // Logger defines which methods are requested for a logger to be used in this package
@@ -340,5 +342,12 @@ func GetReqJSONData(resp http.ResponseWriter, req *http.Request, data interface{
 		return err
 	}
 	return nil
+}
+
+func Tee(httpReqBody *io.ReadCloser) []byte {
+	var b []byte
+	b, _ = ioutil.ReadAll(*httpReqBody)
+	*httpReqBody = ioutil.NopCloser(bytes.NewBuffer(b))
+	return b
 }
 
