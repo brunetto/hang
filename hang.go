@@ -16,6 +16,9 @@ import (
 	"encoding/json"
 	"bytes"
 	"io"
+	"gitlab.com/brunetto/swaggo"
+	"gopkg.in/gin-gonic/gin.v1"
+	"github.com/brunetto/gin-logrus"
 )
 
 // Logger defines which methods are requested for a logger to be used in this package
@@ -204,7 +207,7 @@ func LogStartAndStop(processName string, logger Logger) {
 
 // GetFunctionName returns the function name for debugging purposes
 func GetFunctionName(handler HandleFunc) string {
-	return runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
+	return filepath.Base(runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name())
 }
 
 func GetRoute (req *http.Request) string {
@@ -229,6 +232,7 @@ func Here() string {
 	}
 	return filepath.Base(me.Name())
 }
+
 
 func NewDefaultLogger() Logger {
 	var (
@@ -351,3 +355,55 @@ func Tee(httpReqBody *io.ReadCloser) []byte {
 	return b
 }
 
+func GinOnTheRocks(appName string) (*gin.Engine, *swaggo.Swaggo, Logger, error) {
+	var (
+		err           error
+		rotatedWriter *ritter.Writer
+		r             *gin.Engine
+		s *swaggo.Swaggo
+		log Logger
+	)
+	// NewMonitor writer with rotation
+	rotatedWriter, err = ritter.NewRitterTime("storage/logs/" + appName + ".log")
+	if err != nil {
+		return r, s, log, errors.Wrap(err, "can't create log file")
+	}
+
+	// Tee to stderr
+	rotatedWriter.TeeToStdErr = true
+
+	// Create logger
+	log = &logrus.Logger{
+		Out:   rotatedWriter,
+		Hooks: make(logrus.LevelHooks),
+		Level: logrus.DebugLevel,
+		Formatter: new(logrus.JSONFormatter),
+	}
+
+	// New engine
+	r = gin.New()
+	r.Use(ginlogrus.Logger(log.(*logrus.Logger)), gin.Recovery())
+
+	// Swagger addDocs with redoc UI
+	s, err = swaggo.NewSwaggo()
+	if err != nil {
+		return r, s, log, errors.Wrap(err, "can't create new swaggo")
+	}
+
+	s.AddUndocPaths("favicon")
+	s.AddEndpoint("/livecheck", "GET", "",
+		swaggo.Response(http.StatusOK, "", "Service is alive"),
+		swaggo.Description("Endpoint to ensure service is up and running"),
+		swaggo.Consumes(""),
+		swaggo.Produces("text/plain"),
+	)
+	s.AddEndpoint("/livecheck", "POST", "",
+		swaggo.Response(http.StatusOK, "", "Service is alive"),
+		swaggo.Description("Endpoint to ensure service is up and running"),
+		swaggo.Consumes(""),
+		swaggo.Produces("text/plain"),
+	)
+
+	LogStartAndStop(appName, log)
+	return r, s, log, err
+}
