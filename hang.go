@@ -2,7 +2,7 @@ package hang
 
 import (
 	"github.com/pkg/errors"
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"net/http"
 	"os"
 	"os/signal"
@@ -390,6 +390,10 @@ func GinOnTheRocks(appName string) (*gin.Engine, *swaggo.Swaggo, Logger, error) 
 	if err != nil {
 		return r, s, log, errors.Wrap(err, "can't create new swaggo")
 	}
+
+	r.GET("/livecheck", func(c *gin.Context) { c.String(http.StatusOK, "%v", "OK") })
+	r.POST("/livecheck", func(c *gin.Context) { c.String(http.StatusOK, "%v", "OK") })
+	r.GET("/favicon.ico", func(*gin.Context) { return })
 
 	s.AddUndocPaths("favicon")
 	s.AddEndpoint("/livecheck", "GET", "",
