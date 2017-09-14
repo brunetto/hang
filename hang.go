@@ -233,6 +233,18 @@ func Here() string {
 	return filepath.Base(me.Name())
 }
 
+func HereForGoroutines() string {
+	pc, _, _, ok := runtime.Caller(1)
+	if !ok {
+		return "unknown"
+	}
+	me := runtime.FuncForPC(pc)
+	if me == nil {
+		return "unnamed"
+	}
+	return filepath.Base(me.Name())
+}
+
 
 func NewDefaultLogger() Logger {
 	var (
