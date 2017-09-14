@@ -18,7 +18,6 @@ import (
 	"io"
 	"gitlab.com/brunetto/swaggo"
 	"github.com/gin-gonic/gin"
-	//"gopkg.in/gin-gonic/gin.v1"
 	"github.com/brunetto/gin-logrus"
 )
 
