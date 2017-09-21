@@ -248,7 +248,7 @@ func HereForGoroutines() string {
 
 func NewDefaultLogger() Logger {
 	var (
-		rotatedWriter *ritter.Writer
+		rotatedWriter *ritter.TimeWriter
 		err           error
 	)
 	// New writer with rotation
@@ -370,7 +370,7 @@ func Tee(httpReqBody *io.ReadCloser) []byte {
 func GinOnTheRocks(appName string) (*gin.Engine, *swaggo.Swaggo, Logger, error) {
 	var (
 		err           error
-		rotatedWriter *ritter.Writer
+		rotatedWriter *ritter.TimeWriter
 		r             *gin.Engine
 		s *swaggo.Swaggo
 		log Logger
