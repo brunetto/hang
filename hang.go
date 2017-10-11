@@ -218,7 +218,7 @@ func GetRoute (req *http.Request) string {
 //type LogFields logrus.Fields//map[string]interface{} // same as logrus.Fields
 
 func At() logrus.Fields {
-	return logrus.Fields{"method": Here()}
+	return logrus.Fields{"app_method": Here()}
 }
 
 func Here() string {
