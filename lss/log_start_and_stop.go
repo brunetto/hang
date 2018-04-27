@@ -7,7 +7,7 @@ import (
 )
 
 type Logger interface {
-	Printf(args ...interface{})
+	Printf(format string, args ...interface{})
 }
 
 // WaitForShutdown waits the quit signal
